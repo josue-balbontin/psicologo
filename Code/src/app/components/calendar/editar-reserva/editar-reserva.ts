@@ -25,7 +25,7 @@ export class EditarReserva implements OnInit {
     telefono: '',
     correo: '',
     pais: '',
-    precio: '',
+    precio: '' as string | number | null,
     start: '',  // 'YYYY-MM-DDTHH:mm'
     end: '',    // 'YYYY-MM-DDTHH:mm'
   };
@@ -40,6 +40,20 @@ export class EditarReserva implements OnInit {
       return `${time}:00`;
     }
     return time.substring(0, 8);
+  }
+
+  private parsePrecio(value: string | number | null): number | null {
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : NaN;
+    }
+
+    const normalized = value.trim().replace(',', '.');
+    if (!normalized) return null;
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : NaN;
   }
 
   isInvalidField(field: 'nombre' | 'descripcion' | 'telefono'): boolean {
@@ -64,6 +78,8 @@ export class EditarReserva implements OnInit {
   }
 
   async guardar(): Promise<void> {
+    if (this.isLoading()) return;
+
     this.submitAttempted.set(true);
     this.errorMsg.set(null);
 
@@ -71,6 +87,19 @@ export class EditarReserva implements OnInit {
       this.errorMsg.set('Nombre, descripción y teléfono son obligatorios.');
       return;
     }
+
+    const phoneDigits = this.form.telefono.replace(/\D/g, '');
+    if (phoneDigits.length < 7) {
+      this.errorMsg.set('El teléfono debe tener al menos 7 dígitos.');
+      return;
+    }
+
+    const precio = this.parsePrecio(this.form.precio);
+    if (Number.isNaN(precio)) {
+      this.errorMsg.set('El precio debe ser un número válido.');
+      return;
+    }
+
     if (this.form.end <= this.form.start) {
       this.errorMsg.set('La hora de fin debe ser posterior a la de inicio.');
       return;
@@ -82,31 +111,31 @@ export class EditarReserva implements OnInit {
     const horaInicio = this.formatTimeForDb(this.form.start);
     const horaFinal = this.formatTimeForDb(this.form.end);
 
-    const haySuperposicion = await this.supabaseService.existeSuperposicion(
-      dia,
-      horaInicio,
-      horaFinal,
-      this.reserva.id
-    );
-    if (haySuperposicion) {
-      this.errorMsg.set('El horario se superpone con otra reserva existente.');
-      return;
-    }
-
-    const cambios: Partial<Reserva> = {
-      nombre: this.form.nombre.trim(),
-      descripcion: this.form.descripcion.trim(),
-      telefono: this.form.telefono.trim(),
-      correo: this.form.correo.trim(),
-      pais: this.form.pais.trim(),
-      precio: this.form.precio.trim() ? Number(this.form.precio) : null,
-      dia,
-      hora_inicio: horaInicio,
-      hora_final: horaFinal,
-    };
-
     this.isLoading.set(true);
     try {
+      const haySuperposicion = await this.supabaseService.existeSuperposicion(
+        dia,
+        horaInicio,
+        horaFinal,
+        this.reserva.id
+      );
+      if (haySuperposicion) {
+        this.errorMsg.set('El horario se superpone con otra reserva existente.');
+        return;
+      }
+
+      const cambios: Partial<Reserva> = {
+        nombre: this.form.nombre.trim(),
+        descripcion: this.form.descripcion.trim(),
+        telefono: this.form.telefono.trim(),
+        correo: this.form.correo.trim(),
+        pais: this.form.pais.trim(),
+        precio,
+        dia,
+        hora_inicio: horaInicio,
+        hora_final: horaFinal,
+      };
+
       const actualizada = await this.supabaseService.actualizar(this.reserva.id!, cambios);
       this.guardado.emit(actualizada);
     } catch (err) {

@@ -125,7 +125,7 @@
         </svg>
       </div>
       <h3 class="modal-title">Nuevo evento</h3>
-      <button class="modal-close" (click)="showEventModal.set(false)">
+      <button class="modal-close" [disabled]="isSavingEvent()" (click)="showEventModal.set(false)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -190,8 +190,10 @@
 
     <div class="modal-footer">
       <p class="modal-error" *ngIf="modalError()">{{ modalError() }}</p>
-      <button class="btn-secondary" (click)="showEventModal.set(false)">Cancelar</button>
-      <button class="btn-primary" (click)="saveEvent()">Guardar</button>
+      <button class="btn-secondary" [disabled]="isSavingEvent()" (click)="showEventModal.set(false)">Cancelar</button>
+      <button class="btn-primary" [disabled]="isSavingEvent()" (click)="saveEvent()">
+        {{ isSavingEvent() ? 'Guardando...' : 'Guardar' }}
+      </button>
     </div>
   </div>
 </div>

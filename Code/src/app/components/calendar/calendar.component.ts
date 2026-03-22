@@ -47,6 +47,7 @@ export class CalendarComponent implements OnInit {
   showEventDetail = signal(false);
   selectedDate = signal(DayPilot.Date.today());
   isLoading = signal(false);
+  isSavingEvent = signal(false);
   errorMsg = signal<string | null>(null);
   modalError = signal<string | null>(null);
   showEditarReserva = signal(false);
@@ -61,7 +62,7 @@ export class CalendarComponent implements OnInit {
     telefono: '',
     correo: '',
     pais: '',
-    precio: '',
+    precio: '' as string | number | null,
     start: '',
     end: '',
   };
@@ -256,6 +257,20 @@ export class CalendarComponent implements OnInit {
     return time.substring(0, 8);
   }
 
+  private parsePrecio(value: string | number | null): number | null {
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : NaN;
+    }
+
+    const normalized = value.trim().replace(',', '.');
+    if (!normalized) return null;
+
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+
   isCreateFieldInvalid(field: 'title' | 'descripcion' | 'telefono'): boolean {
     if (!this.createSubmitAttempted()) return false;
 
@@ -290,11 +305,25 @@ export class CalendarComponent implements OnInit {
   }
 
   async saveEvent(): Promise<void> {
+    if (this.isSavingEvent()) return;
+
     this.createSubmitAttempted.set(true);
     this.modalError.set(null);
 
     if (!this.newEvent.title.trim() || !this.newEvent.descripcion.trim() || !this.newEvent.telefono.trim()) {
       this.modalError.set('Título, descripción y teléfono son obligatorios.');
+      return;
+    }
+
+    const phoneDigits = this.newEvent.telefono.replace(/\D/g, '');
+    if (phoneDigits.length < 7) {
+      this.modalError.set('El teléfono debe tener al menos 7 dígitos.');
+      return;
+    }
+
+    const precio = this.parsePrecio(this.newEvent.precio);
+    if (Number.isNaN(precio)) {
+      this.modalError.set('El precio debe ser un número válido.');
       return;
     }
 
@@ -314,31 +343,32 @@ export class CalendarComponent implements OnInit {
     const horaInicio = this.formatTimeForDb(this.newEvent.start);
     const horaFinal = this.formatTimeForDb(this.newEvent.end);
 
-    const haySuperposicion = await this.supabaseService.existeSuperposicion(
-      dia,
-      horaInicio,
-      horaFinal
-    );
-    if (haySuperposicion) {
-      this.modalError.set('El horario se superpone con una reserva existente.');
-      return;
-    }
-
-    const reserva: Omit<Reserva, 'id'> = {
-      nombre: this.newEvent.title.trim(),
-      descripcion: this.newEvent.descripcion.trim(),
-      telefono: this.newEvent.telefono.trim(),
-      correo: this.newEvent.correo.trim(),
-      pais: this.newEvent.pais.trim(),
-      precio: this.newEvent.precio.trim() ? Number(this.newEvent.precio) : null,
-      dia,
-      hora_inicio: horaInicio,
-      hora_final: horaFinal,
-    };
-
+    this.isSavingEvent.set(true);
     this.isLoading.set(true);
     this.errorMsg.set(null);
     try {
+      const haySuperposicion = await this.supabaseService.existeSuperposicion(
+        dia,
+        horaInicio,
+        horaFinal
+      );
+      if (haySuperposicion) {
+        this.modalError.set('El horario se superpone con una reserva existente.');
+        return;
+      }
+
+      const reserva: Omit<Reserva, 'id'> = {
+        nombre: this.newEvent.title.trim(),
+        descripcion: this.newEvent.descripcion.trim(),
+        telefono: this.newEvent.telefono.trim(),
+        correo: this.newEvent.correo.trim(),
+        pais: this.newEvent.pais.trim(),
+        precio,
+        dia,
+        hora_inicio: horaInicio,
+        hora_final: horaFinal,
+      };
+
       await this.supabaseService.guardar(reserva);
       await this.cargarReservas();
       this.showEventModal.set(false);
@@ -347,6 +377,7 @@ export class CalendarComponent implements OnInit {
       console.error('Error al guardar reserva:', err);
       this.errorMsg.set('No se pudo guardar la reserva.');
     } finally {
+      this.isSavingEvent.set(false);
       this.isLoading.set(false);
     }
   }

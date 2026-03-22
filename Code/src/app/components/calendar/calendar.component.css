@@ -530,6 +530,11 @@
 }
 .modal-close:hover { background: rgba(255,255,255,.15); }
 
+.modal-close:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .modal-body {
   padding: 20px;
   display: flex;
@@ -637,6 +642,11 @@
 }
 .btn-primary:hover { background: #4b4fb7; }
 
+.btn-primary:disabled {
+  background: #a0a2dc;
+  cursor: not-allowed;
+}
+
 .btn-secondary {
   padding: 9px 20px;
   background: #fff;
@@ -650,6 +660,11 @@
   font-family: inherit;
 }
 .btn-secondary:hover { background: #f3f2f1; }
+
+.btn-secondary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
 
 .btn-danger {
   display: flex;

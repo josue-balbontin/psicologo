@@ -62,6 +62,11 @@
 }
 .er-close:hover { color: #fff; }
 
+.er-close:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Body */
 .er-body {
   padding: 20px;
